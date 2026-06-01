@@ -8,14 +8,17 @@ function generarRecibo(rowData) {
     fechaPago,
     folio,
     fechaCreacion,
+    nombreHoja, // Identifica en qué hoja escribir
+    idPlantilla, // Identifica qué plantilla copiar
   } = rowData;
 
   try {
     const fechaObj =
       fechaCreacion instanceof Date ? fechaCreacion : new Date(fechaCreacion);
-    const carpetaDestino = crearCarpertaPorFecha(fechaObj);
+    const carpetaDestino = crearCarpertaPorFecha(fechaObj, nombreHoja);
 
-    const plantilla = DriveApp.getFileById(ID_PLANTILLA_RECIBO);
+    // FASE 1: Uso del ID de plantilla dinámico
+    const plantilla = DriveApp.getFileById(idPlantilla);
     const clienteSeguro = cliente
       .trim()
       .normalize("NFD")
@@ -35,7 +38,6 @@ function generarRecibo(rowData) {
         maximumFractionDigits: 2,
       }) +
       " MXN";
-
     const fechaPagoFormateada = Utilities.formatDate(
       new Date(fechaPago),
       Session.getScriptTimeZone(),
@@ -50,16 +52,18 @@ function generarRecibo(rowData) {
     body.replaceText("{{Folio}}", folio);
 
     documento.saveAndClose();
-
     const url = documento.getUrl();
-    actualizarEstadoArchivo(rowIndex, "Generado", url);
+
+    // FASE 2: GUARDADO INCREMENTAL INMEDIATO
+    // Guardamos la URL en la hoja justo en el momento en que se genera
+    actualizarEstadoArchivo(rowIndex, "Generado", url, nombreHoja);
 
     return { success: true, url };
   } catch (error) {
     console.error(
-      `Error al generar recibo para fila ${rowIndex}: ${error.message}`,
+      `Error fila ${rowIndex} de la hoja ${nombreHoja}: ${error.message}`,
     );
-    actualizarEstadoArchivo(rowIndex, "Error");
+    actualizarEstadoArchivo(rowIndex, "Error", null, nombreHoja);
     return { success: false, error: error.message };
   }
 }
@@ -95,6 +99,8 @@ function generarTodosPendientes() {
       } else {
         fallidos++;
       }
+      // Forzamos a Sheets a escribir y mostrar la URL en pantalla antes de procesar el siguiente
+      SpreadsheetApp.flush();
     }
 
     console.log(
