@@ -56,14 +56,14 @@ function generarRecibo(rowData) {
 
     // FASE 2: GUARDADO INCREMENTAL INMEDIATO
     // Guardamos la URL en la hoja justo en el momento en que se genera
-    actualizarEstadoArchivo(rowIndex, "Generado", url, nombreHoja);
+    actualizarEstadoArchivo(rowIndex, "GENERADO", url, nombreHoja);
 
     return { success: true, url };
   } catch (error) {
     console.error(
       `Error fila ${rowIndex} de la hoja ${nombreHoja}: ${error.message}`,
     );
-    actualizarEstadoArchivo(rowIndex, "Error", null, nombreHoja);
+    actualizarEstadoArchivo(rowIndex, "ERROR", null, nombreHoja);
     return { success: false, error: error.message };
   }
 }

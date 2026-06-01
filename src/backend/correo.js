@@ -36,7 +36,7 @@ function enviarReciboPorCorreo(rowIndex, destinatariosArr) {
     });
 
     // Actualizamos los estatus en el Sheets
-    hoja.getRange(rowIndex, COLUMNAS.ESTADO_CORREO + 1).setValue("Enviado");
+    hoja.getRange(rowIndex, COLUMNAS.ESTADO_CORREO + 1).setValue("ENVIADO");
     hoja
       .getRange(rowIndex, COLUMNAS.DESTINATARIOS + 1)
       .setValue(correosDestino);

@@ -37,7 +37,7 @@ function obtenerFilasPendientes() {
 
     for (let i = 1; i < datos.length; i++) {
       const fila = datos[i];
-      if (fila[COLUMNAS.STATUS] === "Pendiente") {
+      if (fila[COLUMNAS.STATUS] === "PENDIENTE") {
         pendientes.push({
           rowIndex: i + 1,
           nombreHoja: data.nombre,

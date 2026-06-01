@@ -99,7 +99,7 @@ function procesarYGuardarFirmaWebApp(base64Firma, fila) {
     }
 
     doc.saveAndClose();
-    hoja.getRange(fila, COLUMNAS.ESTADO_FIRMA + 1).setValue("Firmado");
+    hoja.getRange(fila, COLUMNAS.ESTADO_FIRMA + 1).setValue("FIRMADO");
 
     return { success: true };
   } catch (error) {
