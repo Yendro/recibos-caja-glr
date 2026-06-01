@@ -12,40 +12,46 @@ function doGet(e) {
   return html;
 }
 
-// Función que llamará el frontend para obtener la lista de trabajo
-// Nueva función que carga los recibos filtrados y los correos predefinidos
 function obtenerDatosParaWeb() {
-  const hoja = obtenerHoja();
-  const datos = hoja.getDataRange().getValues();
+  const config = obtenerConfiguracion(); // Obtenemos correos dinámicos
+  const hojasData = obtenerHojasDeRecibos(); // Función que creamos en sheet.js
   const recibos = [];
 
-  for (let i = 1; i < datos.length; i++) {
-    const fila = datos[i];
-    const status = fila[COLUMNAS.STATUS];
-    const estadoFirma = fila[COLUMNAS.ESTADO_FIRMA] || "No firmado";
-    const estadoCorreo = fila[COLUMNAS.ESTADO_CORREO] || "No enviado";
+  // Iteramos sobre TODAS las hojas de recibos
+  hojasData.forEach((data) => {
+    const hoja = data.hoja;
+    const nombreHoja = data.nombre;
+    const datos = hoja.getDataRange().getValues();
 
-    // LÓGICA: Solo incluir recibos 'Generados' que NO estén completamente terminados (Firmado Y Enviado)
-    if (
-      status === "Generado" &&
-      !(estadoFirma === "Firmado" && estadoCorreo === "Enviado")
-    ) {
-      recibos.push({
-        rowIndex: i + 1,
-        cliente: fila[COLUMNAS.CLIENTE] || "",
-        importe: fila[COLUMNAS.IMPORTE] || 0,
-        concepto: fila[COLUMNAS.CONCEPTO] || "",
-        folio: fila[COLUMNAS.FOLIO] || "",
-        urlDoc: fila[COLUMNAS.ARCHIVO] || "",
-        estadoFirma: estadoFirma,
-        estadoCorreo: estadoCorreo,
-        destinatarios: fila[COLUMNAS.DESTINATARIOS] || "",
-      });
+    for (let i = 1; i < datos.length; i++) {
+      const fila = datos[i];
+      const status = fila[COLUMNAS.STATUS];
+      const estadoFirma = fila[COLUMNAS.ESTADO_FIRMA] || "PENDIENTE";
+      const estadoCorreo = fila[COLUMNAS.ESTADO_CORREO] || "PENDIENTE";
+
+      if (
+        status === "GENERADO" &&
+        !(estadoFirma === "FIRMADO" && estadoCorreo === "ENVIADO")
+      ) {
+        recibos.push({
+          rowIndex: i + 1,
+          nombreHoja: nombreHoja, // Le decimos al frontend de qué hoja viene
+          cliente: fila[COLUMNAS.CLIENTE] || "",
+          importe: fila[COLUMNAS.IMPORTE] || 0,
+          concepto: fila[COLUMNAS.CONCEPTO] || "",
+          folio: fila[COLUMNAS.FOLIO] || "",
+          urlDoc: fila[COLUMNAS.ARCHIVO] || "",
+          estadoFirma: estadoFirma,
+          estadoCorreo: estadoCorreo,
+          estatusFoto: fila[COLUMNAS.ESTATUS_FOTO] || "PENDIENTE",
+          destinatarios: fila[COLUMNAS.DESTINATARIOS] || "",
+        });
+      }
     }
-  }
+  });
 
   return {
     recibos: recibos.reverse(),
-    correosPredefinidos: CORREOS_PREDEFINIDOS,
+    correosPredefinidos: config.directorioCorreos, // Mandamos los objetos {nombre, correo}
   };
 }
