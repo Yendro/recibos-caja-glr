@@ -1,0 +1,21 @@
+const COLUMNAS = {
+  CLIENTE: 0,
+  IMPORTE: 1,
+  CONCEPTO: 2,
+  FECHA_PAGO: 3,
+  IMPORTE_LETRA: 4,
+  FOLIO: 5,
+  FECHA_CREACION: 6,
+  STATUS: 7,
+  ARCHIVO: 8,
+  ESTADO_FIRMA: 9,
+  ESTADO_CORREO: 10,
+  DESTINATARIOS: 11,
+};
+
+const NOMBRE_HOJA = "Recibos";
+const CARPETA_RAIZ = "RecibosCaja-GLR";
+const CARPETA_RECIBOS = "Recibos";
+const FORMATO_FECHA_CARPETA = "yyyy-MM-dd";
+const ID_PLANTILLA_RECIBO = "";
+const CORREOS_PREDEFINIDOS = [""];
