@@ -1,6 +1,16 @@
-node_modules/**
-package-lock.json
-package.json
-jsconfig.json
-tsconfig.json
+# Ignore all files
+**/**
+
+# Except:
+!appsscript.json
+!**/*.gs
+!**/*.js
+!**/*.ts
+!**/*.html
+
+# Ignore even valid files if in:
 .git/**
+node_modules/**
+
+# Python virtual environments:
+.venv/**
