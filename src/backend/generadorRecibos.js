@@ -71,6 +71,20 @@ function generarRecibo(rowData) {
 function generar() {}
 
 function generarTodosPendientes() {
+  // 1. Pedimos la llave del documento
+  const lock = LockService.getDocumentLock();
+
+  // 2. Intentamos entrar (espera hasta 10 segundos). Si alguien más lo está usando, rebotamos.
+  if (!lock.tryLock(10000)) {
+    return [
+      {
+        success: false,
+        error:
+          "⚠️ Otro usuario está generando recibos en este momento. Por favor, espera unos segundos e intenta de nuevo.",
+      },
+    ];
+  }
+
   console.log("[INICIO] Iniciando generación masiva de recibos pendientes");
   try {
     const pendientes = obtenerFilasPendientes();
