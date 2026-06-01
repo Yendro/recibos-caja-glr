@@ -56,6 +56,19 @@ function inicializarSistema() {
       .setValues([["Nombre de la Persona", "Correo Electrónico"]])
       .setBackground("#f1f5f9")
       .setFontWeight("bold");
+    hojaConfig
+      .getRange("G1:H1")
+      .setValues([["CONFIGURACIÓN DRIVE", ""]])
+      .merge()
+      .setBackground("#fa8072")
+      .setFontColor("white")
+      .setFontWeight("bold");
+    hojaConfig
+      .getRange("G2:H2")
+      .setValues([["Nombre Carpeta Raíz", "RecibosCaja-App"]])
+      .setBackground("#f1f5f9")
+      .setFontWeight("bold");
+    hojaConfig.autoResizeColumns(1, 8);
 
     // Datos de EJEMPLO
     hojaConfig.getRange("E3:F4").setValues([
@@ -106,6 +119,7 @@ function inicializarSistema() {
         "EstadoCorreo",
         "Destinatarios",
         "EstatusFoto",
+        "Eliminar",
       ];
 
       // 1. Asignar los nombres de encabezado
@@ -171,6 +185,16 @@ function inicializarSistema() {
       hojaRecibos.setColumnWidth(11, 120); // EstadoCorreo
       hojaRecibos.setColumnWidth(12, 250); // Destinatarios
       hojaRecibos.setColumnWidth(13, 120); // EstatusFoto
+      hojaRecibos.setColumnWidth(14, 150); // Eliminar
+
+      // Validacion Dropdown Eliminar
+      const reglaEliminar = SpreadsheetApp.newDataValidation()
+        .requireValueInList(["🗑️ ELIMINAR RECIBO"], true)
+        .setAllowInvalid(false)
+        .build();
+      hojaRecibos
+        .getRange(2, 14, hojaRecibos.getMaxRows() - 1, 1)
+        .setDataValidation(reglaEliminar);
 
       // 5. Agregar Validación de Fecha (Calendario) en la columna FechaPago (Columna 4)
       const reglaFecha = SpreadsheetApp.newDataValidation()
