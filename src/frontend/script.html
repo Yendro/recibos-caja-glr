@@ -322,6 +322,7 @@
 
   function abrirModalCorreo(index) {
     currentRowIndex = recibosData[index].rowIndex;
+    currentNombreHoja = recibosData[index].nombreHoja;
     document.getElementById("correoAlert").classList.add("d-none");
 
     // Construir la tabla de los correos
