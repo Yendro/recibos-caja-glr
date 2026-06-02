@@ -18,7 +18,7 @@ function inicializarSistema() {
       .getRange("A2:D2")
       .setValues([
         [
-          "Nombre Hoja (Destino)",
+          "Nombre Hoja",
           "ID de la Plantilla de Docs",
           "Correos Autorizados (separados por coma)",
           "Prefijo Folio",
@@ -26,13 +26,11 @@ function inicializarSistema() {
       ])
       .setBackground("#f1f5f9")
       .setFontWeight("bold");
-
-    // Datos de EJEMPLO (Placeholders genéricos)
     hojaConfig.getRange("A3:D4").setValues([
       [
         "RecibosMarcaA",
         "PEGAR_ID_PLANTILLA_AQUI",
-        "admin@tuempresa.com",
+        "admin@tuempresa.com,ejemplo@separado.com",
         "MARCAA",
       ],
       [
@@ -43,7 +41,7 @@ function inicializarSistema() {
       ],
     ]);
 
-    // Formato de Correos
+    // Formato de Directorio de Correos
     hojaConfig
       .getRange("E1:F1")
       .setValues([["DIRECTORIO DE CORREOS", ""]])
@@ -56,6 +54,12 @@ function inicializarSistema() {
       .setValues([["Nombre de la Persona", "Correo Electrónico"]])
       .setBackground("#f1f5f9")
       .setFontWeight("bold");
+    hojaConfig.getRange("E3:F4").setValues([
+      ["Juan Perez", "juan@tuempresa.com"],
+      ["Maria Gomez", "maria@tuempresa.com"],
+    ]);
+
+    // Formato de Configuración de Drive
     hojaConfig
       .getRange("G1:H1")
       .setValues([["CONFIGURACIÓN DRIVE", ""]])
@@ -65,18 +69,48 @@ function inicializarSistema() {
       .setFontWeight("bold");
     hojaConfig
       .getRange("G2:H2")
-      .setValues([["Nombre Carpeta Raíz", "RecibosCaja-App"]])
+      .setValues([["Nombre Carpeta Raíz", "/Carpeta donde está este archivo"]])
       .setBackground("#f1f5f9")
       .setFontWeight("bold");
-    hojaConfig.autoResizeColumns(1, 8);
 
-    // Datos de EJEMPLO
-    hojaConfig.getRange("E3:F4").setValues([
-      ["Juan Perez", "juan@tuempresa.com"],
-      ["Maria Gomez", "maria@tuempresa.com"],
-    ]);
+    // Formato de Configuración de Correo
+    hojaConfig
+      .getRange("G4:H4")
+      .setValues([["CONFIGURACIÓN DE CORREO", ""]])
+      .merge()
+      .setBackground("#0075c9")
+      .setFontColor("white")
+      .setFontWeight("bold");
+    hojaConfig
+      .getRange("G5:H5")
+      .setValues([
+        ["Correo que se verá al enviar el recibo", "correo@recibo.com"],
+      ])
+      .setBackground("#f1f5f9")
+      .setFontWeight("bold");
+    hojaConfig
+      .getRange("G6:H6")
+      .setValues([
+        ["Nombre que se verá al enviar el recibo", "Caja NombreEmpresa"],
+      ])
+      .setBackground("#f1f5f9")
+      .setFontWeight("bold");
 
-    hojaConfig.autoResizeColumns(1, 6);
+    // Aplicar Formato General a la hoja Config (Alineación, Centrado y Ajuste de texto)
+    const rangoTotalConfig = hojaConfig.getRange(1, 1, 30, 8); // Abarcar todo el área de configuración
+    rangoTotalConfig.setWrap(true);
+    rangoTotalConfig.setVerticalAlignment("middle");
+    rangoTotalConfig.setHorizontalAlignment("left");
+
+    // Anchos de columna considerables para que todo sea legible
+    hojaConfig.setColumnWidth(1, 180); // Nombre Hoja
+    hojaConfig.setColumnWidth(2, 350); // ID Plantilla
+    hojaConfig.setColumnWidth(3, 250); // Correos Autorizados
+    hojaConfig.setColumnWidth(4, 120); // Prefijo Folio
+    hojaConfig.setColumnWidth(5, 200); // Nombre Persona
+    hojaConfig.setColumnWidth(6, 250); // Correo Persona
+    hojaConfig.setColumnWidth(7, 260); // Textos descriptivos (G)
+    hojaConfig.setColumnWidth(8, 250); // Valores ingresados (H)
 
     SpreadsheetApp.getUi().alert(
       "Paso 1 Completado",
@@ -84,7 +118,6 @@ function inicializarSistema() {
       SpreadsheetApp.getUi().ButtonSet.OK,
     );
 
-    // Detenemos la ejecución aquí para que el usuario pueda llenar los datos
     return;
   }
 

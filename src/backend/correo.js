@@ -1,8 +1,8 @@
 // Recibimos el nombreHoja
 function enviarReciboPorCorreo(rowIndex, nombreHoja, destinatariosArr) {
   try {
-    const hoja =
-      SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombreHoja);
+    const spreadSheet = SpreadsheetApp.getActiveSpreadsheet();
+    const hoja = spreadSheet.getSheetByName(nombreHoja);
     const urlDoc = hoja
       .getRange(rowIndex, COLUMNAS.ARCHIVO + 1)
       .getValue()
@@ -43,12 +43,30 @@ function enviarReciboPorCorreo(rowIndex, nombreHoja, destinatariosArr) {
 
     const correosDestino = destinatariosArr.join(",");
 
-    MailApp.sendEmail({
-      to: correosDestino,
-      subject: `Recibo Confirmado - ${folio}`,
+    // Obtener la configuración del remitente
+    const config = obtenerConfiguracion();
+
+    const opcionesEmail = {
       htmlBody: bodyCorreo,
       attachments: [pdfBlob],
-    });
+      name: config.nombreRemitente || "Caja", // Usa el nombre de la Configuración
+    };
+
+    // Validamos que el alias exista y tenga formato de correo antes de inyectarlo
+    if (config.aliasCorreo && config.aliasCorreo.includes("@")) {
+      opcionesEmail.from = config.aliasCorreo;
+    }
+
+    const cuerpoTextoPlano =
+      "Se ha generado su recibo. Por favor, visualice este correo en un cliente que soporte formato HTML.";
+
+    // Envío usando GmailApp
+    GmailApp.sendEmail(
+      correosDestino,
+      `Recibo Confirmado - ${folio}`,
+      cuerpoTextoPlano,
+      opcionesEmail,
+    );
 
     hoja.getRange(rowIndex, COLUMNAS.ESTADO_CORREO + 1).setValue("ENVIADO");
     hoja

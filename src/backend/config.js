@@ -32,9 +32,12 @@ function obtenerConfiguracion() {
     );
   }
 
-  // Leer Carpeta Raíz
+  // Leer Variables Generales (Drive y Correo)
   const carpetaRaiz =
     hojaConfig.getRange("H2").getValue() || "Recibos-Generales";
+  const aliasCorreo = hojaConfig.getRange("H5").getValue() || "";
+  const nombreRemitente =
+    hojaConfig.getRange("H6").getValue() || "Sistema de Recibos";
 
   const datosPlantillas = hojaConfig.getRange("A3:D10").getValues();
   const plantillas = [];
@@ -54,10 +57,8 @@ function obtenerConfiguracion() {
     }
   }
 
-  // 2. Leer Correos (Rango E3:F30)
   const datosCorreos = hojaConfig.getRange("E3:F30").getValues();
   const directorioCorreos = [];
-
   for (const fila of datosCorreos) {
     if (fila[0] && fila[1]) {
       directorioCorreos.push({
@@ -69,6 +70,8 @@ function obtenerConfiguracion() {
 
   return {
     carpetaRaiz: carpetaRaiz,
+    aliasCorreo: aliasCorreo.toString().trim(),
+    nombreRemitente: nombreRemitente.toString().trim(),
     plantillas: plantillas,
     directorioCorreos: directorioCorreos,
   };
