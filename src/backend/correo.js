@@ -1,6 +1,8 @@
-function enviarReciboPorCorreo(rowIndex, destinatariosArr) {
+// Recibimos el nombreHoja
+function enviarReciboPorCorreo(rowIndex, nombreHoja, destinatariosArr) {
   try {
-    const hoja = obtenerHoja();
+    const spreadSheet = SpreadsheetApp.getActiveSpreadsheet();
+    const hoja = spreadSheet.getSheetByName(nombreHoja);
     const urlDoc = hoja
       .getRange(rowIndex, COLUMNAS.ARCHIVO + 1)
       .getValue()
@@ -12,7 +14,21 @@ function enviarReciboPorCorreo(rowIndex, destinatariosArr) {
     if (!match) throw new Error("No se encontró un documento válido.");
     const docId = match[0];
 
-    // CONVERSIÓN NATIVA: Más rápida, segura y no requiere UrlFetchApp
+    // LIMPIEZA FINAL DEL DOCUMENTO
+    // Abrimos el doc una última vez para revisar si quedó la etiqueta de foto vacía
+    const doc = DocumentApp.openById(docId);
+    const body = doc.getBody();
+    const elementoId = body.findText("{{IdentificacionCliente}}");
+    if (elementoId) {
+      // Si la etiqueta sigue ahí (el cliente no quiso foto), la borramos para que no salga en el PDF
+      elementoId
+        .getElement()
+        .asText()
+        .replaceText("{{IdentificacionCliente}}", "");
+    }
+    doc.saveAndClose();
+
+    // CONVERSIÓN NATIVA A PDF
     const pdfBlob = DriveApp.getFileById(docId)
       .getAs(MimeType.PDF)
       .setName(`${folio}_${cliente}.pdf`);
@@ -27,16 +43,32 @@ function enviarReciboPorCorreo(rowIndex, destinatariosArr) {
 
     const correosDestino = destinatariosArr.join(",");
 
-    // Envío por MailApp utilizando los alcances de la cuenta activa
-    MailApp.sendEmail({
-      to: correosDestino,
-      subject: `Recibo Confirmado - ${folio}`,
+    // Obtener la configuración del remitente
+    const config = obtenerConfiguracion();
+
+    const opcionesEmail = {
       htmlBody: bodyCorreo,
       attachments: [pdfBlob],
-    });
+      name: config.nombreRemitente || "Caja", // Usa el nombre de la Configuración
+    };
 
-    // Actualizamos los estatus en el Sheets
-    hoja.getRange(rowIndex, COLUMNAS.ESTADO_CORREO + 1).setValue("Enviado");
+    // Validamos que el alias exista y tenga formato de correo antes de inyectarlo
+    if (config.aliasCorreo && config.aliasCorreo.includes("@")) {
+      opcionesEmail.from = config.aliasCorreo;
+    }
+
+    const cuerpoTextoPlano =
+      "Se ha generado su recibo. Por favor, visualice este correo en un cliente que soporte formato HTML.";
+
+    // Envío usando GmailApp
+    GmailApp.sendEmail(
+      correosDestino,
+      `Recibo Confirmado - ${folio}`,
+      cuerpoTextoPlano,
+      opcionesEmail,
+    );
+
+    hoja.getRange(rowIndex, COLUMNAS.ESTADO_CORREO + 1).setValue("ENVIADO");
     hoja
       .getRange(rowIndex, COLUMNAS.DESTINATARIOS + 1)
       .setValue(correosDestino);

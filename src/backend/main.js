@@ -2,6 +2,8 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu("Generar Recibos")
     .addItem("Abrir Panel de Recibos", "mostrarBarraLateral")
+    .addSeparator()
+    .addItem("⚙️ Inicializar Sistema", "inicializarSistema")
     .addToUi();
 }
 

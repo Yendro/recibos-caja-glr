@@ -8,14 +8,17 @@ function generarRecibo(rowData) {
     fechaPago,
     folio,
     fechaCreacion,
+    nombreHoja, // Identifica en qué hoja escribir
+    idPlantilla, // Identifica qué plantilla copiar
   } = rowData;
 
   try {
     const fechaObj =
       fechaCreacion instanceof Date ? fechaCreacion : new Date(fechaCreacion);
-    const carpetaDestino = crearCarpertaPorFecha(fechaObj);
+    const carpetaDestino = crearCarpertaPorFecha(fechaObj, nombreHoja);
 
-    const plantilla = DriveApp.getFileById(ID_PLANTILLA_RECIBO);
+    // FASE 1: Uso del ID de plantilla dinámico
+    const plantilla = DriveApp.getFileById(idPlantilla);
     const clienteSeguro = cliente
       .trim()
       .normalize("NFD")
@@ -35,7 +38,6 @@ function generarRecibo(rowData) {
         maximumFractionDigits: 2,
       }) +
       " MXN";
-
     const fechaPagoFormateada = Utilities.formatDate(
       new Date(fechaPago),
       Session.getScriptTimeZone(),
@@ -50,16 +52,18 @@ function generarRecibo(rowData) {
     body.replaceText("{{Folio}}", folio);
 
     documento.saveAndClose();
-
     const url = documento.getUrl();
-    actualizarEstadoArchivo(rowIndex, "Generado", url);
+
+    // FASE 2: GUARDADO INCREMENTAL INMEDIATO
+    // Guardamos la URL en la hoja justo en el momento en que se genera
+    actualizarEstadoArchivo(rowIndex, "GENERADO", url, nombreHoja);
 
     return { success: true, url };
   } catch (error) {
     console.error(
-      `Error al generar recibo para fila ${rowIndex}: ${error.message}`,
+      `Error fila ${rowIndex} de la hoja ${nombreHoja}: ${error.message}`,
     );
-    actualizarEstadoArchivo(rowIndex, "Error");
+    actualizarEstadoArchivo(rowIndex, "ERROR", null, nombreHoja);
     return { success: false, error: error.message };
   }
 }
@@ -67,6 +71,20 @@ function generarRecibo(rowData) {
 function generar() {}
 
 function generarTodosPendientes() {
+  // 1. Pedimos la llave del documento
+  const lock = LockService.getDocumentLock();
+
+  // 2. Intentamos entrar (espera hasta 10 segundos). Si alguien más lo está usando, rebotamos.
+  if (!lock.tryLock(10000)) {
+    return [
+      {
+        success: false,
+        error:
+          "⚠️ Otro usuario está generando recibos en este momento. Por favor, espera unos segundos e intenta de nuevo.",
+      },
+    ];
+  }
+
   console.log("[INICIO] Iniciando generación masiva de recibos pendientes");
   try {
     const pendientes = obtenerFilasPendientes();
@@ -95,6 +113,8 @@ function generarTodosPendientes() {
       } else {
         fallidos++;
       }
+      // Forzamos a Sheets a escribir y mostrar la URL en pantalla antes de procesar el siguiente
+      SpreadsheetApp.flush();
     }
 
     console.log(
