@@ -5,7 +5,15 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto se adhiere a [Semantic Versioning](https://semver.org/).
 
-## [v1.1.0] - 2026-06-01
+## [1.1.1] - 2026-06-02
+
+### 🐛 Correcciones (Fixed)
+
+- **Remitente Dinámico y Alias:** Se reemplazó el motor de `MailApp` por `GmailApp` en el envío de recibos. Esto permite enmascarar el correo personal del desarrollador utilizando un Alias corporativo autorizado y un Nombre de Remitente personalizado.
+- **Configuración de Correo en UI:** Se agregaron los campos "Correo que se verá al enviar el recibo" y "Nombre que se verá al enviar el recibo" a la hoja oculta `Config`, aplicando valores de respaldo (_fallbacks_) en el código para prevenir errores de ejecución si las celdas se dejan vacías.
+- **Corrección de Scope en UI:** Se solucionó el error `Cannot read properties of null (reading 'getRange')` enviando correctamente la variable `currentNombreHoja` desde el frontend al modal de selección de correos.
+
+## [1.1.0] - 2026-06-01
 
 ### 🚀 Añadido (Added)
 
