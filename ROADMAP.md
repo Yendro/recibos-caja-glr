@@ -1,59 +1,38 @@
-# 🗺️ Roadmap Técnico: Recibos GLR
+# 🗺️ Roadmap Técnico: Recibos GLR (Versión 2.0.0)
 
-**Objetivo Principal V.1.1.0:** Eliminar datos _hardcodeados_, soportar múltiples plantillas (GLR/Playaviva) mediante una configuración dinámica en Sheets, y refinar el flujo operativo (folios, fotos y seguridad).
-
----
-
-## 🛠️ Fase 1: Arquitectura y Configuración Base (Completado)
-
-_El sistema debe saber de dónde leer la configuración antes de operar._
-
-- [x] **Inicializador de Configuración:** Crear función en el menú de Sheets que genere una hoja oculta llamada `Config`.
-- [x] **Estructura de `Config`:** Debe almacenar Plantillas, Directorio de Contactos y Directorio de Drive.
-- [x] **Refactor de `config.js`:** Actualizar el código para que lea dinámicamente la hoja `Config` en lugar de usar constantes fijas.
-- [x] **Generador Multi-Hoja:** Modificar la inicialización para que cree hojas separadas (ej. `RecibosGLR`, `RecibosPlayaviva`).
-- [x] **Protección Visual:** Aplicar inmovilización de primera fila y proteger (bloquear edición manual) a las columnas automáticas.
-
-## ⚙️ Fase 2: Lógica de Captura y Backend (Completado)
-
-_Mejorar la fiabilidad de los datos ingresados en Sheets._
-
-- [x] **Texto a Mayúsculas:** Modificar `onEditTrigger.js` para convertir a MAYÚSCULAS el texto ingresado.
-- [x] **Folios Precisos:** Actualizar la generación del Folio para que utilice el número de fila.
-- [x] **Generación Incremental:** Guardar la URL del documento en la celda **inmediatamente** después de generarlo.
-
-## 📸 Fase 3: Nuevo Flujo de Foto y Correo (Completado)
-
-_Evitar que el documento se rompa antes de tiempo y cargar correos dinámicos._
-
-- [x] **Nueva Columna:** Añadir la columna `EstatusFoto` al inicializar las hojas.
-- [x] **Retraso de Borrado de Foto:** **NO** borrar el tag `{{IdentificacionCliente}}` si el usuario no tomó foto de inmediato.
-- [x] **Limpieza Final:** Borrar la etiqueta vacía _justo antes_ de convertir el documento a PDF.
-- [x] **Endpoint de Correos:** Enviar al frontend la lista dinámica de contactos leída de la hoja `Config`.
-
-## 💻 Fase 4: Interfaz Web App Frontend (Completado)
-
-_Reflejar los cambios del backend en la pantalla del usuario._
-
-- [x] **Filtros de Vista:** Añadir controles UI (Pill buttons) para filtrar los recibos por su hoja de origen.
-- [x] **Contexto en Tarjetas:** Mostrar el número de índice/fila del Sheet en la tarjeta del recibo (Badge Superior).
-- [x] **Bloqueo de Foto:** Deshabilitar el botón de capturar e indicar "Capturada" si ya existe foto.
-- [x] **Mejoras del Canvas:** Aumentar resolución base a 500px y presentar visualización UI en grid de 2 columnas para correos.
-
-## 🛡️ Fase 5: Permisos y Limpieza (Completado Parcialmente)
-
-_Proteger el sistema de errores humanos._
-
-- [x] **Columna ELIMINAR:** Añadir columna con un Smart Chip / Dropdown de confirmación.
-- [x] **Trigger de Borrado:** Trigger `onEdit` que mueve el Doc a la papelera de Drive y elimina la fila.
-- [ ] **Permisos por Hoja Automáticos:** _(Decidido estratégicamente: Movido a la versión V.2.0.0 para evitar conflictos con el Scope de ejecución. Se manejará manualmente por interfaz nativa temporalmente)._
+**Objetivo Principal V.2.0.0:** Consolidar el sistema en una Single Page Application (SPA) modular, automatizar la seguridad granular en Sheets, y construir un módulo de atención de solicitudes conectando Google Forms con la Web App.
 
 ---
 
-## 🚑 Hotfix V.1.1.1: Configuración de Remitente (Completado)
+## 🧩 Fase 1: Modularización y Migración del Generador
 
-_Enmascaramiento de remitente para evitar exposición de cuenta personal._
+_Preparar el terreno en el código y trasladar la generación al frontend centralizado._
 
-- [x] **Campos de Interfaz:** Añadir campos de "Alias de Correo" y "Nombre de Remitente" a la sección de Configuración de `inicializador.js`.
-- [x] **Refactor de Envío:** Cambiar la API de `MailApp` a `GmailApp` para soportar parámetros avanzados.
-- [x] **Fallbacks:** Inyectar "Caja" como prevención de errores si el usuario no configura la celda.
+- [ ] **Refactorización de Scripts:** Dividir el monolítico `script.html` en múltiples archivos lógicos (ej. `script_core`, `script_ui`, `script_modals`) para mantener el proyecto mantenible.
+- [ ] **Componente Sidebar (Offcanvas):** Diseñar e integrar un menú lateral deslizable con Bootstrap Offcanvas (`sidebar.html`) que oscurezca el fondo al abrirse, adaptado al diseño UI de la app.
+- [ ] **Migración de Generación:** Trasladar la lógica del botón "Generar Pendientes" del entorno de Sheets al nuevo Sidebar del SPA. Esto asegura que la auditoría y ejecución corran exclusivamente bajo la cuenta administradora.
+
+## 🔐 Fase 2: Seguridad y Permisos de Hojas
+
+_Aislar las áreas de trabajo para evitar errores operativos entre responsables._
+
+- [ ] **Protección por Código:** Actualizar `inicializador.js` para que, al crear una hoja, bloquee automáticamente toda su cuadrícula.
+- [ ] **Inyección de Editores:** Leer la columna "Correos Autorizados" de la hoja `Config` y otorgar permisos de edición exclusivos a esos correos en sus respectivas hojas.
+
+## 🗑️ Fase 3: Módulo de Administración (Eliminación Segura)
+
+_Manejar la eliminación de registros desde el SPA para garantizar el borrado físico del PDF._
+
+- [ ] **Limpieza de Triggers:** Remover la lógica de eliminación (`🗑️ ELIMINAR RECIBO`) del `onEditTrigger.js` en Sheets para evitar fallos de permisos delegados.
+- [ ] **UI de Administración:** Crear una vista/modal en el SPA que permita seleccionar múltiples recibos mediante checkboxes.
+- [ ] **Backend de Borrado:** Programar función que reciba los recibos seleccionados, mueva sus respectivos Google Docs a la papelera de Drive, y elimine las filas en Sheets con permisos de Owner.
+
+## 📝 Fase 4: Módulo de Solicitudes (Integración Google Forms)
+
+_Permitir a los clientes consultar el estatus de su dinero mediante un flujo automatizado._
+
+- [ ] **Configuración de Hoja Base:** Añadir al inicializador la creación de la hoja oficial "Solicitud de Recibos".
+- [ ] **Trigger Puente (`onFormSubmit`):** Crear script que escuche el envío del Google Form nativo, extraiga los datos y los inserte "limpios" en la hoja oficial con los estados iniciales (`PENDIENTE`).
+- [ ] **Vista SPA "Pendientes por Confirmar":** Desarrollar una nueva sección/pestaña en la interfaz que renderice exclusivamente las solicitudes que aún no han sido confirmadas.
+- [ ] **Flujo de Acciones (Confirmar y Enviar):** - Botón **Confirmar**: Cambia el estado en Sheets a `CONFIRMADO` (con modal de advertencia previo).
+  - Botón **Enviar**: Habilita el envío de un correo de notificación al cliente (usando el directorio dinámico o el correo proporcionado) avisando que su dinero está en Caja. Al enviarse, la solicitud desaparece de la vista de pendientes.
