@@ -116,4 +116,16 @@
     transform-origin: top left;
     border: none;
   }
+
+  /* === 3. EFECTO BLUR PARA EL OFFCANVAS (SIDEBAR) === */
+  .offcanvas-backdrop.show {
+    opacity: 1 !important;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .text-primary-custom {
+    color: var(--color-primary);
+  }
 </style>
