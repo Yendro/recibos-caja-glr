@@ -30,7 +30,6 @@ function obtenerFilasPendientes() {
   const hojasData = obtenerHojasDeRecibos();
   const pendientes = [];
 
-  // Iteramos sobre todas las hojas de recibos generadas
   hojasData.forEach((data) => {
     const hoja = data.hoja;
     const datos = hoja.getDataRange().getValues();
@@ -41,7 +40,7 @@ function obtenerFilasPendientes() {
         pendientes.push({
           rowIndex: i + 1,
           nombreHoja: data.nombre,
-          idPlantilla: data.idPlantilla, // Lo pasamos para saber qué plantilla clonar
+          idPlantilla: data.idPlantilla, // La usamos para saber qué plantilla clonar
           cliente: fila[COLUMNAS.CLIENTE] || "",
           importe: fila[COLUMNAS.IMPORTE] || 0,
           importeLetra: fila[COLUMNAS.IMPORTE_LETRA] || "",
@@ -57,14 +56,15 @@ function obtenerFilasPendientes() {
   return pendientes;
 }
 
-function actualizarEstadoArchivo(rowIndex, status, urlDoc = null, nombreHoja) {
-  const spreadSheet = SpreadsheetApp.getActiveSpreadsheet();
-  const hoja = spreadSheet.getSheetByName(nombreHoja);
-  if (status) {
-    hoja.getRange(rowIndex, COLUMNAS.STATUS + 1).setValue(status);
-  }
-  if (urlDoc) {
-    hoja.getRange(rowIndex, COLUMNAS.ARCHIVO + 1).setValue(urlDoc);
+// Escritura en Lote y uso de Caché
+function actualizarEstadoArchivo(rowIndex, status, urlDoc = null, hojaCache) {
+  if (status && urlDoc) {
+    // Como STATUS (7) y ARCHIVO (8) son contiguas, escribimos ambas en una sola llamada
+    hojaCache
+      .getRange(rowIndex, COLUMNAS.STATUS + 1, 1, 2)
+      .setValues([[status, urlDoc]]);
+  } else if (status) {
+    hojaCache.getRange(rowIndex, COLUMNAS.STATUS + 1).setValue(status);
   }
 }
 

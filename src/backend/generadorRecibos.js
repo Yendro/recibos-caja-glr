@@ -1,4 +1,5 @@
-function generarRecibo(rowData) {
+// Recibimos la hoja pre-cargada para no buscarla
+function generarRecibo(rowData, hojaCache) {
   const {
     rowIndex,
     cliente,
@@ -17,7 +18,7 @@ function generarRecibo(rowData) {
       fechaCreacion instanceof Date ? fechaCreacion : new Date(fechaCreacion);
     const carpetaDestino = crearCarpertaPorFecha(fechaObj, nombreHoja);
 
-    // FASE 1: Uso del ID de plantilla dinámico
+    // Uso del ID de plantilla dinámico
     const plantilla = DriveApp.getFileById(idPlantilla);
     const clienteSeguro = cliente
       .trim()
@@ -54,21 +55,18 @@ function generarRecibo(rowData) {
     documento.saveAndClose();
     const url = documento.getUrl();
 
-    // FASE 2: GUARDADO INCREMENTAL INMEDIATO
-    // Guardamos la URL en la hoja justo en el momento en que se genera
-    actualizarEstadoArchivo(rowIndex, "GENERADO", url, nombreHoja);
+    // Usamos la escritura en lote y le pasamos la hoja en caché
+    actualizarEstadoArchivo(rowIndex, "GENERADO", url, hojaCache);
 
     return { success: true, url };
   } catch (error) {
     console.error(
-      `Error fila ${rowIndex} de la hoja ${nombreHoja}: ${error.message}`,
+      `Error fila ${rowIndex} hoja ${nombreHoja}: ${error.message}`,
     );
-    actualizarEstadoArchivo(rowIndex, "ERROR", null, nombreHoja);
+    actualizarEstadoArchivo(rowIndex, "ERROR", null, hojaCache);
     return { success: false, error: error.message };
   }
 }
-
-function generar() {}
 
 function generarTodosPendientes() {
   // 1. Pedimos la llave del documento
@@ -85,53 +83,49 @@ function generarTodosPendientes() {
     ];
   }
 
-  console.log("[INICIO] Iniciando generación masiva de recibos pendientes");
   try {
-    const pendientes = obtenerFilasPendientes();
-    console.log(
-      `[DEBUG] Se encontraron ${pendientes.length} recibos pendientes`,
-    );
+    const pendientesTotales = obtenerFilasPendientes();
+    if (pendientesTotales.length === 0) return [];
 
-    if (pendientes.length === 0) {
-      console.log("[INFO] No hay recibos pendientes para generar");
-      return [];
-    }
+    // Límite de seguridad para evitar Timeouts de Google
+    const MAX_PROCESAMIENTO = 15;
+    const pendientes = pendientesTotales.slice(0, MAX_PROCESAMIENTO);
+
+    // Caché de Hojas de cálculo
+    const spreadSheet = SpreadsheetApp.getActiveSpreadsheet();
+    const hojasCache = {};
 
     const resultados = [];
-    let exitosos = 0;
-    let fallidos = 0;
 
     for (let i = 0; i < pendientes.length; i++) {
       const pend = pendientes[i];
-      console.log(`[DEBUG] Procesando recibo ${i + 1} de ${pendientes.length}`);
 
-      const res = generarRecibo(pend);
+      // Si la hoja no está en caché, la buscamos y la guardamos
+      if (!hojasCache[pend.nombreHoja]) {
+        hojasCache[pend.nombreHoja] = spreadSheet.getSheetByName(
+          pend.nombreHoja,
+        );
+      }
+
+      // Le pasamos la hoja pre-cargada a la función
+      const res = generarRecibo(pend, hojasCache[pend.nombreHoja]);
       resultados.push(res);
 
-      if (res.success) {
-        exitosos++;
-      } else {
-        fallidos++;
-      }
-      // Forzamos a Sheets a escribir y mostrar la URL en pantalla antes de procesar el siguiente
-      SpreadsheetApp.flush();
+      // SpreadsheetApp.flush();
     }
 
-    console.log(
-      `[RESUMEN] Generación completada - Exitosos: ${exitosos}, Fallidos: ${fallidos}`,
-    );
+    // Si había más de 15, le avisa al frontend inyectando un mensaje
+    if (pendientesTotales.length > MAX_PROCESAMIENTO) {
+      resultados[0].warning = `Se generaron los primeros ${MAX_PROCESAMIENTO} recibos por seguridad. Quedan ${pendientesTotales.length - MAX_PROCESAMIENTO} en cola. Vuelve a hacer clic en Generar.`;
+    }
+
     return resultados;
   } catch (error) {
-    console.error(
-      `[ERROR CRÍTICO] Error en generarTodosPendientes: ${error.message}`,
-    );
-    console.error(`[ERROR] Stack: ${error.stack}`);
+    console.error(`[ERROR CRÍTICO] ${error.message}`);
     return [
-      {
-        success: false,
-        error: `Error crítico: ${error.message}`,
-        fatal: true,
-      },
+      { success: false, error: `Error crítico: ${error.message}`, fatal: true },
     ];
+  } finally {
+    lock.releaseLock();
   }
 }
