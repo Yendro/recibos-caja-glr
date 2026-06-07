@@ -1,30 +1,21 @@
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu("Generar Recibos")
-    .addItem("Abrir Panel de Recibos", "mostrarBarraLateral")
+  ui.createMenu("⚙️ Configuración")
+    .addItem("Configurar e Iniciar Sistema", "inicializarSistema")
     .addSeparator()
-    .addItem("⚙️ Inicializar Sistema", "inicializarSistema")
+    .addItem("Configurar Permisos de Google", "forzarPermisos")
     .addToUi();
 }
 
-// Abrir sidebar
-function mostrarBarraLateral() {
-  const html = HtmlService.createHtmlOutputFromFile("src/frontend/sidebar")
-    .setTitle("Generador de Recibos")
-    .setWidth(400);
-  SpreadsheetApp.getUi().showSidebar(html);
-}
+function forzarPermisos() {
+  // Al invocar esta línea, Google fuerza la revisión del appsscript.json
+  GmailApp.getAliases();
 
-function generarRecibosDesdeMenu() {
-  const resultado = generarTodosPendientes();
-  const ui = SpreadsheetApp.getUi();
-  const exitosos = resultado.filter((r) => r.success).length;
-  const fallidos = resultado.length - exitosos;
-
-  ui.alert(
-    "Resultado",
-    `Recibos generados: ${exitosos}\nErrores: ${fallidos}`,
-    ui.ButtonSet.OK,
+  // Si pasa la línea anterior sin detenerse por permisos, mostramos éxito
+  SpreadsheetApp.getUi().alert(
+    "Permisos Configurados",
+    "Si no te apareció la pantalla de advertencia de Google, significa que tu cuenta ya tiene todos los permisos necesarios aprobados.\n\nYa puedes utilizar el sistema con normalidad.",
+    SpreadsheetApp.getUi().ButtonSet.OK,
   );
 }
 
