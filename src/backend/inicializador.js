@@ -121,9 +121,10 @@ function inicializarSistema() {
     return;
   }
 
-  // PASO 2: SI YA EXISTE 'CONFIG', LEER DATOS REALES Y CREAR HOJAS DE RECIBOS
+  // PASO 2: SI YA EXISTE 'CONFIG', LEER DATOS REALES Y CREAR/PROTEGER HOJAS DE RECIBOS
   const config = obtenerConfiguracion();
   let hojasCreadas = 0;
+  let hojasProtegidas = 0;
 
   config.plantillas.forEach((plantilla) => {
     // Ignorar si el usuario olvidó borrar el placeholder
@@ -135,6 +136,7 @@ function inicializarSistema() {
 
     let hojaRecibos = spreadSheet.getSheetByName(plantilla.nombreHoja);
 
+    // --- A. CREACIÓN DE LA HOJA (Si no existe) ---
     if (!hojaRecibos) {
       hojaRecibos = spreadSheet.insertSheet(plantilla.nombreHoja);
 
@@ -176,18 +178,12 @@ function inicializarSistema() {
       // 4. Inmovilizar paneles
       hojaRecibos.setFrozenRows(1);
       hojaRecibos.setFrozenColumns(4);
+
       // Columna Importe (B / 2) -> Moneda
       hojaRecibos
         .getRange(2, 2, hojaRecibos.getMaxRows() - 1, 1)
         .setNumberFormat("$#,##0.00");
-      // Columna FechaCreacion (G / 7) -> Fecha y Hora
-      hojaRecibos
-        .getRange(2, 7, hojaRecibos.getMaxRows() - 1, 1)
-        .setNumberFormat("dd/MM/yyyy HH:mm:ss");
-      // Columna Importe (B / 2) -> Moneda
-      hojaRecibos
-        .getRange(2, 2, hojaRecibos.getMaxRows() - 1, 1)
-        .setNumberFormat("$#,##0.00");
+
       // Columna FechaCreacion (G / 7) -> Fecha y Hora
       hojaRecibos
         .getRange(2, 7, hojaRecibos.getMaxRows() - 1, 1)
@@ -220,7 +216,7 @@ function inicializarSistema() {
       hojaRecibos.setColumnWidth(13, 120); // EstatusFoto
       hojaRecibos.setColumnWidth(14, 150); // Eliminar
 
-      // Validacion Dropdown Eliminar
+      // Eliminación Lógica
       const reglaEliminar = SpreadsheetApp.newDataValidation()
         .requireValueInList(["🗑️ ELIMINAR RECIBO"], true)
         .setAllowInvalid(false)
@@ -229,7 +225,7 @@ function inicializarSistema() {
         .getRange(2, 14, hojaRecibos.getMaxRows() - 1, 1)
         .setDataValidation(reglaEliminar);
 
-      // 5. Agregar Validación de Fecha (Calendario) en la columna FechaPago (Columna 4)
+      // Validación de Fechas
       const reglaFecha = SpreadsheetApp.newDataValidation()
         .requireDate()
         .setAllowInvalid(false)
@@ -241,26 +237,85 @@ function inicializarSistema() {
         .getRange(2, 4, hojaRecibos.getMaxRows() - 1, 1)
         .setDataValidation(reglaFecha);
 
-      // 6. Proteger las columnas automáticas
       const numColumnasAutomaticas = nombresColumnas.length - 4;
-      const proteccion = hojaRecibos
-        .getRange(1, 5, hojaRecibos.getMaxRows(), numColumnasAutomaticas)
-        .protect();
-      proteccion.setDescription(
-        "Columnas Protegidas - " + plantilla.nombreHoja,
+      const rangoAutomaticas = hojaRecibos.getRange(
+        2,
+        5,
+        hojaRecibos.getMaxRows() - 1,
+        numColumnasAutomaticas,
       );
-      proteccion.setWarningOnly(true);
+      const proteccionAviso = rangoAutomaticas
+        .protect()
+        .setDescription("Columnas Automáticas");
+      proteccionAviso.setWarningOnly(true);
 
       hojasCreadas++;
     }
+
+    // --- B. PROTECCIÓN DE LA HOJA (Se ejecuta siempre que inicializas) ---
+    // Esto asegura que si agregas un nuevo correo en la Config, se aplique a hojas existentes
+
+    // 1. Limpiar protecciones viejas (para evitar duplicados o "capas" de protección)
+    const proteccionesAnteriores = hojaRecibos.getProtections(
+      SpreadsheetApp.ProtectionType.SHEET,
+    );
+    for (let i = 0; i < proteccionesAnteriores.length; i++) {
+      proteccionesAnteriores[i].remove();
+    }
+
+    // 2. Proteger la hoja completa
+    const proteccionGlobal = hojaRecibos
+      .protect()
+      .setDescription("Protección Automatizada: " + plantilla.nombreHoja);
+
+    // 3. Excluir la primera fila (encabezados) para que los filtros funcionen
+    const rangoEncabezado = hojaRecibos.getRange("A1:N1");
+    proteccionGlobal.setUnprotectedRanges([rangoEncabezado]);
+
+    // 4. Asegurar que tú (Owner) siempre tienes acceso
+    const me = Session.getEffectiveUser();
+    proteccionGlobal.addEditor(me);
+
+    // 5. Remover a todos los demás editores genéricos del archivo
+    proteccionGlobal.removeEditors(proteccionGlobal.getEditors());
+
+    // 6. Inyectar exclusivamente los correos de la Configuración
+    if (plantilla.editores.length > 0) {
+      // Usamos un bloque Try/Catch por si alguien escribe mal un correo en Config
+      try {
+        proteccionGlobal.addEditors(plantilla.editores);
+      } catch (e) {
+        console.error(
+          "Error al añadir editores a " + plantilla.nombreHoja + ": " + e,
+        );
+      }
+    }
+
+    hojasProtegidas++;
   });
 
-  // Ocultamos la hoja de configuración por seguridad solo después de generar las hojas
+  // --- C. PROTECCIÓN DE LA HOJA DE CONFIGURACIÓN ---
+  const proteccionesConfig = hojaConfig.getProtections(
+    SpreadsheetApp.ProtectionType.SHEET,
+  );
+  for (let i = 0; i < proteccionesConfig.length; i++) {
+    proteccionesConfig[i].remove();
+  }
+
+  const proteccionConfig = hojaConfig
+    .protect()
+    .setDescription("Bloqueo de Configuración");
+  proteccionConfig.addEditor(Session.getEffectiveUser()); // Solo el owner del archivo puede editar ahora
+  proteccionConfig.removeEditors(proteccionConfig.getEditors());
+
   hojaConfig.hideSheet();
 
   SpreadsheetApp.getUi().alert(
-    "Éxito",
-    `Sistema inicializado correctamente.\nSe verificaron/crearon ${hojasCreadas} hojas de recibos nuevas.\n\n- Las columnas manuales tienen diferente color.\n- La columna FechaPago tiene calendario interactivo.\n- Las columnas automáticas están protegidas.`,
+    "Auditoría Finalizada",
+    `Sistema inicializado y asegurado.\n\n` +
+      `- Hojas nuevas creadas: ${hojasCreadas}\n` +
+      `- Hojas re-protegidas: ${hojasProtegidas}\n\n` +
+      `Los permisos de edición ahora son exclusivos para los correos listados en la hoja Config.`,
     SpreadsheetApp.getUi().ButtonSet.OK,
   );
 }
