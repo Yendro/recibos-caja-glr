@@ -4,12 +4,11 @@ function onEdit(e) {
   const hoja = range.getSheet();
   const nombreHojaEditada = hoja.getName();
 
-  // Validar si la hoja editada es una de las hojas de Recibos activas
+  // Validar si la hoja editada es operativa
   const config = obtenerConfiguracion();
   const esHojaRecibos = config.plantillas.some(
     (p) => p.nombreHoja === nombreHojaEditada,
   );
-
   if (!esHojaRecibos) return;
 
   const startRow = range.getRow();
@@ -17,45 +16,14 @@ function onEdit(e) {
   const startCol = range.getColumn();
   const endCol = range.getLastColumn();
 
-  if (startRow === 1) return;
-
-  // Evaluamos si editaron la columna Eliminar y eligieron la opción correcta
-  if (startCol === COLUMNAS.ELIMINAR + 1 && e.value === "🗑️ ELIMINAR RECIBO") {
-    const urlDoc = hoja.getRange(startRow, COLUMNAS.ARCHIVO + 1).getValue();
-
-    // 1. Mover documento a la papelera de Drive
-    if (urlDoc) {
-      const match = urlDoc.match(/[-\w]{25,}/);
-      if (match) {
-        try {
-          DriveApp.getFileById(match[0]).setTrashed(true);
-        } catch (err) {
-          console.error("No se pudo enviar a la papelera: " + err);
-        }
-      }
-    }
-
-    // 2. Eliminar la fila completa en Sheets
-    hoja.deleteRow(startRow);
-    SpreadsheetApp.getActiveSpreadsheet().toast(
-      "Recibo y documento eliminados correctamente.",
-      "🗑️ Eliminado",
-    );
-
-    // 3. Detenemos la ejecución aquí (no genera mayúsculas, ni folios)
-    return;
-  }
+  if (startRow === 1) return; // Ignorar encabezados
 
   // CONVERTIR A MAYÚSCULAS AUTOMÁTICAMENTE
-  // Si el valor ingresado es un texto y NO es una fórmula
   if (e.value && typeof e.value === "string" && !e.value.startsWith("=")) {
-    // Solo aplicamos mayúsculas a las columnas de llenado manual (de Cliente a FechaPago)
     if (startCol <= 4) {
+      // Solo columnas manuales
       const upperValue = e.value.toUpperCase();
-      // Verificamos si el texto cambió para evitar bucles infinitos
-      if (e.value !== upperValue) {
-        range.setValue(upperValue);
-      }
+      if (e.value !== upperValue) range.setValue(upperValue);
     }
   }
 

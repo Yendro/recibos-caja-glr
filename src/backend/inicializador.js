@@ -154,7 +154,6 @@ function inicializarSistema() {
         "EstadoCorreo",
         "Destinatarios",
         "EstatusFoto",
-        "Eliminar",
       ];
 
       // 1. Asignar los nombres de encabezado
@@ -170,10 +169,18 @@ function inicializarSistema() {
         .getRange(1, 5, 1, nombresColumnas.length - 4)
         .setBackground("#0075c9"); // Azul para las automáticas
 
-      // 3. Fondo suave a las columnas de ingreso manual
+      // 3. Fondos suaves para diferenciar celdas manuales de automáticas
       hojaRecibos
         .getRange(2, 1, hojaRecibos.getMaxRows() - 1, 4)
-        .setBackground("#fff2ee");
+        .setBackground("#fff2ee"); // Naranja suave
+      hojaRecibos
+        .getRange(
+          2,
+          5,
+          hojaRecibos.getMaxRows() - 1,
+          nombresColumnas.length - 4,
+        )
+        .setBackground("#eaf4fc"); // Azul suave
 
       // 4. Inmovilizar paneles
       hojaRecibos.setFrozenRows(1);
@@ -214,16 +221,6 @@ function inicializarSistema() {
       hojaRecibos.setColumnWidth(11, 120); // EstadoCorreo
       hojaRecibos.setColumnWidth(12, 250); // Destinatarios
       hojaRecibos.setColumnWidth(13, 120); // EstatusFoto
-      hojaRecibos.setColumnWidth(14, 150); // Eliminar
-
-      // Eliminación Lógica
-      const reglaEliminar = SpreadsheetApp.newDataValidation()
-        .requireValueInList(["🗑️ ELIMINAR RECIBO"], true)
-        .setAllowInvalid(false)
-        .build();
-      hojaRecibos
-        .getRange(2, 14, hojaRecibos.getMaxRows() - 1, 1)
-        .setDataValidation(reglaEliminar);
 
       // Validación de Fechas
       const reglaFecha = SpreadsheetApp.newDataValidation()

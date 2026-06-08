@@ -55,3 +55,44 @@ function obtenerDatosParaWeb() {
     correosPredefinidos: config.directorioCorreos, // Mandamos los objetos {nombre, correo}
   };
 }
+
+function eliminarRecibosMasivo(listaAEliminar) {
+  try {
+    const spreadSheet = SpreadsheetApp.getActiveSpreadsheet();
+
+    // 1. Enviar documentos a papelera
+    listaAEliminar.forEach((r) => {
+      if (r.urlDoc) {
+        const match = r.urlDoc.match(/[-\w]{25,}/);
+        if (match) {
+          try {
+            DriveApp.getFileById(match[0]).setTrashed(true);
+          } catch (e) {
+            console.warn("Archivo ya no existe:", e);
+          }
+        }
+      }
+    });
+
+    // 2. Agrupar por hoja para borrar en bloque
+    const porHoja = {};
+    listaAEliminar.forEach((r) => {
+      if (!porHoja[r.nombreHoja]) porHoja[r.nombreHoja] = [];
+      porHoja[r.nombreHoja].push(r.rowIndex);
+    });
+
+    // 3. Borrar filas DE ABAJO HACIA ARRIBA
+    for (const hojaNombre in porHoja) {
+      const hoja = spreadSheet.getSheetByName(hojaNombre);
+      if (hoja) {
+        // Orden Descendente vital para no desplazar las filas al borrar
+        const filasDescendentes = porHoja[hojaNombre].sort((a, b) => b - a);
+        filasDescendentes.forEach((filaIndex) => hoja.deleteRow(filaIndex));
+      }
+    }
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, message: err.toString() };
+  }
+}
