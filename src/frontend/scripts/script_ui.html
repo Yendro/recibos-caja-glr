@@ -1,22 +1,26 @@
 <script>
+  let modoAdmin = false;
+  let recibosSeleccionados = new Set(); // Guarda los índices seleccionados
+
   function renderizarUI(data) {
     recibosData = data.recibos;
     listadoCorreos = data.correosPredefinidos;
+    recibosSeleccionados.clear(); // Limpiamos selecciones al recargar
+    actualizarContadorAdmin();
+
     document.getElementById("loadingIndicator").style.display = "none";
     renderizarFiltros();
     renderizarTarjetas();
   }
 
   function renderizarFiltros() {
+    /* ... Tu código original ... */
     const filterDiv = document.getElementById("filterContainer");
     const hojasUnicas = [...new Set(recibosData.map((r) => r.nombreHoja))];
-
-    // Si no hay recibos, no mostramos filtros
     if (recibosData.length === 0) {
       filterDiv.innerHTML = "";
       return;
     }
-
     let html = `<button class="btn btn-sm ${filtroActual === "TODOS" ? "btn-dark" : "btn-outline-secondary"} rounded-pill px-4 fw-bold" onclick="aplicarFiltro('TODOS')">Todos</button>`;
     hojasUnicas.forEach((hoja) => {
       html += `<button class="btn btn-sm ${filtroActual === hoja ? "btn-primary-custom" : "btn-outline-secondary"} rounded-pill px-4 fw-bold shadow-sm" onclick="aplicarFiltro('${hoja}')"><i class="fa-solid fa-folder-open me-1"></i> ${hoja}</button>`;
@@ -26,13 +30,82 @@
 
   function aplicarFiltro(hoja) {
     filtroActual = hoja;
-    renderizarFiltros(); // Re-dibujar botones para cambiar colores
-    renderizarTarjetas(); // Re-dibujar tarjetas
+    renderizarFiltros();
+    renderizarTarjetas();
+  }
+
+  function toggleModoAdmin() {
+    modoAdmin = !modoAdmin;
+    recibosSeleccionados.clear();
+    const bar = document.getElementById("adminBottomBar");
+    if (modoAdmin) {
+      bar.classList.remove("d-none");
+      setTimeout(() => (bar.style.transform = "translateY(0)"), 10);
+    } else {
+      bar.style.transform = "translateY(100%)";
+      setTimeout(() => bar.classList.add("d-none"), 300);
+    }
+    actualizarContadorAdmin();
+    renderizarTarjetas();
+  }
+
+  function toggleSeleccion(index) {
+    if (!modoAdmin) return;
+    if (recibosSeleccionados.has(index)) recibosSeleccionados.delete(index);
+    else recibosSeleccionados.add(index);
+
+    actualizarContadorAdmin();
+    renderizarTarjetas();
+  }
+
+  function actualizarContadorAdmin() {
+    const countEl = document.getElementById("adminCount");
+    if (countEl) countEl.innerText = recibosSeleccionados.size;
+  }
+
+  function confirmarEliminacion() {
+    if (recibosSeleccionados.size === 0)
+      return alert("Selecciona al menos un recibo.");
+    if (
+      !confirm(
+        `¿Seguro de eliminar físicamente ${recibosSeleccionados.size} recibos (Documento y Fila)?\n\nEsta acción no se puede deshacer.`,
+      )
+    )
+      return;
+
+    const btn = document.getElementById("btnAdminDelete");
+    btn.disabled = true;
+    btn.innerHTML =
+      '<span class="spinner-border spinner-border-sm"></span> Borrando...';
+
+    // Mapeamos los índices a objetos completos para el backend
+    const aEliminar = Array.from(recibosSeleccionados).map((idx) => ({
+      nombreHoja: recibosData[idx].nombreHoja,
+      rowIndex: recibosData[idx].rowIndex,
+      urlDoc: recibosData[idx].urlDoc,
+    }));
+
+    google.script.run
+      .withSuccessHandler((res) => {
+        btn.disabled = false;
+        btn.innerHTML =
+          '<i class="fa-solid fa-trash"></i> Eliminar Físicamente';
+        if (res.success) {
+          toggleModoAdmin(); // Salir de admin y ocultar barra
+          cargarDatos(); // Recargar webapp
+        } else alert("Error: " + res.message);
+      })
+      .withFailureHandler((err) => {
+        alert("Error crítico del servidor: " + err);
+        btn.disabled = false;
+        btn.innerHTML =
+          '<i class="fa-solid fa-trash"></i> Eliminar Físicamente';
+      })
+      .eliminarRecibosMasivo(aEliminar);
   }
 
   function renderizarTarjetas() {
     const listDiv = document.getElementById("receiptsList");
-    // Filtramos la data real basándonos en el botón seleccionado
     const recibosFiltrados =
       filtroActual === "TODOS"
         ? recibosData
@@ -45,7 +118,7 @@
 
     let html = "";
     recibosFiltrados.forEach((r) => {
-      const indexReal = recibosData.indexOf(r); // Necesitamos el índice original para los modales
+      const indexReal = recibosData.indexOf(r);
       const esFirmado = r.estadoFirma === "FIRMADO";
       const fotoCapturada = r.estatusFoto === "CAPTURADA";
       const importeFormateado = Number(r.importe).toLocaleString("en-US", {
@@ -53,21 +126,34 @@
         maximumFractionDigits: 2,
       });
 
-      const btnFotoHtml = fotoCapturada
-        ? `<button class="btn btn-dark btn-sm flex-fill disabled" title="Foto ya capturada"><i class="fa-solid fa-camera"></i> Capturada</button>`
-        : `<button class="btn btn-dark btn-sm flex-fill" onclick="abrirModalFoto(${indexReal})"><i class="fa-solid fa-camera"></i> Foto</button>`;
+      // Si es modo admin, preparamos diseño seleccionable
+      const isSelected = recibosSeleccionados.has(indexReal);
+      const adminBorder =
+        modoAdmin && isSelected ? "border-danger border-2" : "";
+      const adminBg = modoAdmin && isSelected ? "bg-danger bg-opacity-10" : "";
+      const pointer = modoAdmin ? "cursor: pointer; transition: 0.2s;" : "";
 
+      const checkboxHtml = modoAdmin
+        ? `
+        <div class="position-absolute top-0 start-0 m-2 mt-3 ms-3">
+          <input type="checkbox" class="form-check-input border-secondary" style="transform: scale(1.5); pointer-events: none;" ${isSelected ? "checked" : ""}>
+        </div>`
+        : "";
+
+      const btnFotoHtml = fotoCapturada
+        ? `<button class="btn btn-dark btn-sm flex-fill disabled"><i class="fa-solid fa-camera"></i> Capturada</button>`
+        : `<button class="btn btn-dark btn-sm flex-fill" onclick="abrirModalFoto(${indexReal})"><i class="fa-solid fa-camera"></i> Foto</button>`;
       const btnFirmaHtml = esFirmado
         ? `<button class="btn btn-success btn-sm flex-fill disabled"><i class="fa-solid fa-check-double"></i> Firmado</button>`
         : `<button class="btn btn-primary-custom btn-sm flex-fill" onclick="abrirModalFirma(${indexReal})"><i class="fa-solid fa-pen-nib"></i> Firmar</button>`;
-
-      const btnEnviarHtml = `<button class="btn btn-blue btn-sm flex-fill ${!esFirmado ? "disabled" : ""}" onclick="abrirModalCorreo(${indexReal})" ${!esFirmado ? 'title="Debe firmarse primero"' : ""}><i class="fa-solid fa-paper-plane"></i> Enviar</button>`;
+      const btnEnviarHtml = `<button class="btn btn-blue btn-sm flex-fill ${!esFirmado ? "disabled" : ""}" onclick="abrirModalCorreo(${indexReal})"><i class="fa-solid fa-paper-plane"></i> Enviar</button>`;
 
       html += `
-          <div class="col-md-6 col-lg-4">
-            <div class="card receipt-card p-3 position-relative">
+          <div class="col-md-6 col-lg-4" ${modoAdmin ? `onclick="toggleSeleccion(${indexReal})"` : ""} style="${pointer}">
+            <div class="card receipt-card p-3 position-relative ${adminBorder} ${adminBg}">
+              ${checkboxHtml}
               <span class="badge bg-light text-secondary position-absolute top-0 end-0 m-2 border">Fila ${r.rowIndex}</span>
-              <div class="d-flex justify-content-between align-items-start mb-2">
+              <div class="d-flex justify-content-between align-items-start mb-2 ${modoAdmin ? "ms-4" : ""}">
                 <div>
                   <h6 class="mb-0 fw-bold" style="color: var(--color-primary)">${r.folio}</h6>
                   <small class="text-muted d-block mt-1"><i class="fa-regular fa-user me-1"></i>${r.cliente}</small>
@@ -75,7 +161,8 @@
                 </div>
               </div>
               <p class="small mb-3 text-truncate text-secondary"><strong>Concepto:</strong> ${r.concepto}</p>
-              <div class="d-flex gap-2 mt-2">
+              
+              <div class="d-flex gap-2 mt-2" style="${modoAdmin ? "opacity: 0.4; pointer-events: none;" : ""}">
                 ${btnFotoHtml} ${btnFirmaHtml} ${btnEnviarHtml}
               </div>
             </div>
