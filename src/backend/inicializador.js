@@ -1,8 +1,12 @@
 function inicializarSistema() {
   const spreadSheet = SpreadsheetApp.getActiveSpreadsheet();
   let hojaConfig = spreadSheet.getSheetByName("Config");
+  // PropertiesService.getScriptProperties().setProperty(
+  //   "SPREADSHEET_ID",
+  //   spreadSheet.getId(),
+  // );
 
-  // PASO 1: CREAR HOJA CONFIG COMO PLANTILLA GENÉRICA (Si no existe)
+  // PASO 1: CREAR HOJA CONFIG (Si no existe)
   if (!hojaConfig) {
     hojaConfig = spreadSheet.insertSheet("Config");
 
@@ -96,6 +100,13 @@ function inicializarSistema() {
       .setBackground("#f1f5f9")
       .setFontWeight("bold");
 
+    // Fila para el ID del Formulario
+    hojaConfig
+      .getRange("G7:H7")
+      .setValues([["ID del Formulario de Solicitudes (Google Forms)", ""]])
+      .setBackground("#fff2ee")
+      .setFontWeight("bold");
+
     // Aplicar Formato General a la hoja Config (Alineación, Centrado y Ajuste de texto)
     const rangoTotalConfig = hojaConfig.getRange(1, 1, 30, 8); // Abarcar todo el área de configuración
     rangoTotalConfig.setWrap(true);
@@ -126,6 +137,71 @@ function inicializarSistema() {
   let hojasCreadas = 0;
   let hojasProtegidas = 0;
 
+  // --- A. CREAR HOJA DE SOLICITUDES (INTERNA) ---
+  let hojaSolicitudes = spreadSheet.getSheetByName(NOMBRE_HOJA_SOLICITUDES);
+  if (!hojaSolicitudes) {
+    hojaSolicitudes = spreadSheet.insertSheet(NOMBRE_HOJA_SOLICITUDES);
+    const cabecerasSol = [
+      "Marca Temporal",
+      "Cliente",
+      "Correo Solicitante",
+      "Concepto",
+      "Importe",
+      "Confirmación Caja",
+      "Estado Correo",
+      "Destinatarios Notificados",
+    ];
+
+    hojaSolicitudes
+      .getRange(1, 1, 1, cabecerasSol.length)
+      .setValues([cabecerasSol])
+      .setBackground("#4caf50")
+      .setFontColor("white")
+      .setFontWeight("bold");
+    hojaSolicitudes.setFrozenRows(1);
+    hojaSolicitudes
+      .getRange(2, 5, hojaSolicitudes.getMaxRows(), 1)
+      .setNumberFormat("$#,##0.00");
+    hojaSolicitudes
+      .getRange(2, 1, hojaSolicitudes.getMaxRows(), 1)
+      .setNumberFormat("dd/MM/yyyy HH:mm:ss");
+
+    // Proteger hoja de Solicitudes (Solo el admin puede tocarla directo)
+    const protSol = hojaSolicitudes
+      .protect()
+      .setDescription("Bloqueo de Solicitudes");
+    protSol.addEditor(Session.getEffectiveUser());
+    protSol.removeEditors(protSol.getEditors());
+  }
+
+  // --- B. VINCULAR FORMULARIO ---
+  let mensajeFormulario = "\n- Formulario: No se vinculó ningún ID.";
+  if (config.idFormulario && config.idFormulario.length > 10) {
+    try {
+      const form = FormApp.openById(config.idFormulario);
+
+      // Evitar crear triggers duplicados
+      const triggersExistentes = ScriptApp.getProjectTriggers();
+      let triggerYaExiste = false;
+      triggersExistentes.forEach((t) => {
+        if (t.getHandlerFunction() === "alRecibirFormulario")
+          triggerYaExiste = true;
+      });
+
+      if (!triggerYaExiste) {
+        ScriptApp.newTrigger("alRecibirFormulario")
+          .forForm(form)
+          .onFormSubmit()
+          .create();
+      }
+      mensajeFormulario = `- Formulario vinculado exitosamente`;
+    } catch (e) {
+      mensajeFormulario = `- Formulario ERROR: No se pudo vincular (${e.message}). Verifica el ID.`;
+    }
+
+    hojaSolicitudes.hideSheet();
+  }
+
   config.plantillas.forEach((plantilla) => {
     // Ignorar si el usuario olvidó borrar el placeholder
     if (
@@ -136,7 +212,7 @@ function inicializarSistema() {
 
     let hojaRecibos = spreadSheet.getSheetByName(plantilla.nombreHoja);
 
-    // --- A. CREACIÓN DE LA HOJA (Si no existe) ---
+    // --- C. CREACIÓN DE LA HOJA (Si no existe) ---
     if (!hojaRecibos) {
       hojaRecibos = spreadSheet.insertSheet(plantilla.nombreHoja);
 
@@ -270,8 +346,7 @@ function inicializarSistema() {
     proteccionGlobal.setUnprotectedRanges([rangoEncabezado]);
 
     // 4. Asegurar que tú (Owner) siempre tienes acceso
-    const me = Session.getEffectiveUser();
-    proteccionGlobal.addEditor(me);
+    proteccionGlobal.addEditor(Session.getEffectiveUser());
 
     // 5. Remover a todos los demás editores genéricos del archivo
     proteccionGlobal.removeEditors(proteccionGlobal.getEditors());
@@ -311,7 +386,8 @@ function inicializarSistema() {
     "Auditoría Finalizada",
     `Sistema inicializado y asegurado.\n\n` +
       `- Hojas nuevas creadas: ${hojasCreadas}\n` +
-      `- Hojas re-protegidas: ${hojasProtegidas}\n\n` +
+      `- Hojas re-protegidas: ${hojasProtegidas}\n` +
+      `${mensajeFormulario}\n\n` +
       `Los permisos de edición ahora son exclusivos para los correos listados en la hoja Config.`,
     SpreadsheetApp.getUi().ButtonSet.OK,
   );

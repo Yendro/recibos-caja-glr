@@ -1,5 +1,6 @@
 const FORMATO_FECHA_CARPETA = "yyyy-MM-dd";
 const NOMBRE_HOJA_CONFIG = "Config";
+const NOMBRE_HOJA_SOLICITUDES = "Solicitudes";
 
 const COLUMNAS = {
   CLIENTE: 0,
@@ -15,6 +16,17 @@ const COLUMNAS = {
   ESTADO_CORREO: 10,
   DESTINATARIOS: 11,
   ESTATUS_FOTO: 12,
+};
+
+const COLUMNAS_SOLICITUDES = {
+  MARCA_TEMPORAL: 0,
+  CLIENTE: 1,
+  CORREO_SOLICITANTE: 2,
+  CONCEPTO: 3,
+  IMPORTE: 4,
+  CONFIRMACION: 5,
+  ESTADO_CORREO: 6,
+  DESTINATARIOS: 7,
 };
 
 /**
@@ -37,6 +49,9 @@ function obtenerConfiguracion() {
   const aliasCorreo = hojaConfig.getRange("H5").getValue() || "";
   const nombreRemitente =
     hojaConfig.getRange("H6").getValue() || "Sistema de Recibos";
+
+  // Leer el ID del formulario
+  const idFormulario = hojaConfig.getRange("H7").getValue() || "";
 
   const datosPlantillas = hojaConfig.getRange("A3:D10").getValues();
   const plantillas = [];
@@ -71,6 +86,7 @@ function obtenerConfiguracion() {
     carpetaRaiz: carpetaRaiz,
     aliasCorreo: aliasCorreo.toString().trim(),
     nombreRemitente: nombreRemitente.toString().trim(),
+    idFormulario: idFormulario.toString().trim(),
     plantillas: plantillas,
     directorioCorreos: directorioCorreos,
   };
