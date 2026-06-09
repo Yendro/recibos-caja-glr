@@ -68,9 +68,17 @@ function obtenerDatosParaWeb() {
         estadoConfirmacion !== "CONFIRMADO" ||
         estadoCorreoSol !== "ENVIADO"
       ) {
+        // Convertir el objeto de Fecha a Texto (ISO) para que el servidor no colapse
+        let fechaLimpia = fila[0];
+        if (fechaLimpia instanceof Date) {
+          fechaLimpia = fechaLimpia.toISOString();
+        } else if (fechaLimpia) {
+          fechaLimpia = fechaLimpia.toString();
+        }
+
         solicitudes.push({
           rowIndex: i + 1,
-          marcaTemporal: fila[0],
+          marcaTemporal: fechaLimpia, // Ahora viaja como texto seguro
           cliente: fila[1] || "",
           correoSolicitante: fila[2] || "",
           concepto: fila[3] || "",
@@ -125,6 +133,25 @@ function eliminarRecibosMasivo(listaAEliminar) {
         filasDescendentes.forEach((filaIndex) => hoja.deleteRow(filaIndex));
       }
     }
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, message: err.toString() };
+  }
+}
+
+function confirmarSolicitudesMasivo(filasAConfirmar) {
+  try {
+    const spreadSheet = SpreadsheetApp.getActiveSpreadsheet();
+    const hoja = spreadSheet.getSheetByName(NOMBRE_HOJA_SOLICITUDES);
+    if (!hoja) throw new Error("Hoja de solicitudes no encontrada");
+
+    // Recorrer las filas y marcar la Columna F (Confirmación Caja, que es índice 6 en base 1)
+    filasAConfirmar.forEach((rowIndex) => {
+      hoja
+        .getRange(rowIndex, COLUMNAS_SOLICITUDES.CONFIRMACION + 1)
+        .setValue("CONFIRMADO");
+    });
 
     return { success: true };
   } catch (err) {

@@ -1,20 +1,53 @@
 <script>
   let modoAdmin = false;
-  let recibosSeleccionados = new Set(); // Guarda los índices seleccionados
+  let recibosSeleccionados = new Set();
+  let solicitudesData = [];
+  let solicitudesSeleccionadas = new Set();
+  let vistaActual = "recibos"; // Memoria para saber en qué pestaña estamos
+  let currentTipoCorreo = "recibo";
 
   function renderizarUI(data) {
     recibosData = data.recibos;
+    solicitudesData = data.solicitudes || []; // Precaución por si viene vacío
     listadoCorreos = data.correosPredefinidos;
-    recibosSeleccionados.clear(); // Limpiamos selecciones al recargar
-    actualizarContadorAdmin();
+
+    // Limpiamos selecciones
+    recibosSeleccionados.clear();
+    solicitudesSeleccionadas.clear();
 
     document.getElementById("loadingIndicator").style.display = "none";
+    document.getElementById("appTabs").style.display = "flex"; // Mostrar pestañas
+
+    // Actualizar Badge de Solicitudes
+    const badge = document.getElementById("badgeSolicitudes");
+    if (solicitudesData.length > 0) {
+      badge.innerText = solicitudesData.length;
+      badge.classList.remove("d-none");
+    } else {
+      badge.classList.add("d-none");
+    }
+
+    actualizarContadorAdmin();
+    actualizarContadorSolicitudes();
+
     renderizarFiltros();
     renderizarTarjetas();
+    renderizarTablaSolicitudes();
+
+    // MANTENER LA VISTA AL RECARGAR DATOS
+    if (vistaActual === "solicitudes") {
+      document.getElementById("solicitudes-tab").click();
+    }
   }
 
+  function cambiarVista(vista) {
+    vistaActual = vista;
+    // Si cambiamos de vista, apagamos el modo admin de recibos por seguridad
+    if (modoAdmin && vista === "solicitudes") toggleModoAdmin();
+  }
+
+  // LÓGICA DE RECIBOS (Tarjetas)
   function renderizarFiltros() {
-    /* ... Tu código original ... */
     const filterDiv = document.getElementById("filterContainer");
     const hojasUnicas = [...new Set(recibosData.map((r) => r.nombreHoja))];
     if (recibosData.length === 0) {
@@ -32,76 +65,6 @@
     filtroActual = hoja;
     renderizarFiltros();
     renderizarTarjetas();
-  }
-
-  function toggleModoAdmin() {
-    modoAdmin = !modoAdmin;
-    recibosSeleccionados.clear();
-    const bar = document.getElementById("adminBottomBar");
-    if (modoAdmin) {
-      bar.classList.remove("d-none");
-      setTimeout(() => (bar.style.transform = "translateY(0)"), 10);
-    } else {
-      bar.style.transform = "translateY(100%)";
-      setTimeout(() => bar.classList.add("d-none"), 300);
-    }
-    actualizarContadorAdmin();
-    renderizarTarjetas();
-  }
-
-  function toggleSeleccion(index) {
-    if (!modoAdmin) return;
-    if (recibosSeleccionados.has(index)) recibosSeleccionados.delete(index);
-    else recibosSeleccionados.add(index);
-
-    actualizarContadorAdmin();
-    renderizarTarjetas();
-  }
-
-  function actualizarContadorAdmin() {
-    const countEl = document.getElementById("adminCount");
-    if (countEl) countEl.innerText = recibosSeleccionados.size;
-  }
-
-  function confirmarEliminacion() {
-    if (recibosSeleccionados.size === 0)
-      return alert("Selecciona al menos un recibo.");
-    if (
-      !confirm(
-        `¿Seguro de eliminar físicamente ${recibosSeleccionados.size} recibos (Documento y Fila)?\n\nEsta acción no se puede deshacer.`,
-      )
-    )
-      return;
-
-    const btn = document.getElementById("btnAdminDelete");
-    btn.disabled = true;
-    btn.innerHTML =
-      '<span class="spinner-border spinner-border-sm"></span> Borrando...';
-
-    // Mapeamos los índices a objetos completos para el backend
-    const aEliminar = Array.from(recibosSeleccionados).map((idx) => ({
-      nombreHoja: recibosData[idx].nombreHoja,
-      rowIndex: recibosData[idx].rowIndex,
-      urlDoc: recibosData[idx].urlDoc,
-    }));
-
-    google.script.run
-      .withSuccessHandler((res) => {
-        btn.disabled = false;
-        btn.innerHTML =
-          '<i class="fa-solid fa-trash"></i> Eliminar Físicamente';
-        if (res.success) {
-          toggleModoAdmin(); // Salir de admin y ocultar barra
-          cargarDatos(); // Recargar webapp
-        } else alert("Error: " + res.message);
-      })
-      .withFailureHandler((err) => {
-        alert("Error crítico del servidor: " + err);
-        btn.disabled = false;
-        btn.innerHTML =
-          '<i class="fa-solid fa-trash"></i> Eliminar Físicamente';
-      })
-      .eliminarRecibosMasivo(aEliminar);
   }
 
   function renderizarTarjetas() {
@@ -126,18 +89,13 @@
         maximumFractionDigits: 2,
       });
 
-      // Si es modo admin, preparamos diseño seleccionable
       const isSelected = recibosSeleccionados.has(indexReal);
       const adminBorder =
         modoAdmin && isSelected ? "border-danger border-2" : "";
       const adminBg = modoAdmin && isSelected ? "bg-danger bg-opacity-10" : "";
       const pointer = modoAdmin ? "cursor: pointer; transition: 0.2s;" : "";
-
       const checkboxHtml = modoAdmin
-        ? `
-        <div class="position-absolute top-0 start-0 m-2 mt-3 ms-3">
-          <input type="checkbox" class="form-check-input border-secondary" style="transform: scale(1.5); pointer-events: none;" ${isSelected ? "checked" : ""}>
-        </div>`
+        ? `<div class="position-absolute top-0 start-0 m-2 mt-3 ms-3"><input type="checkbox" class="form-check-input border-secondary" style="transform: scale(1.5); pointer-events: none;" ${isSelected ? "checked" : ""}></div>`
         : "";
 
       const btnFotoHtml = fotoCapturada
@@ -171,4 +129,241 @@
     });
     listDiv.innerHTML = html;
   }
+
+  // MODO ADMIN (RECIBOS)
+  function toggleModoAdmin() {
+    modoAdmin = !modoAdmin;
+    recibosSeleccionados.clear();
+    const bar = document.getElementById("adminBottomBar");
+    if (modoAdmin) {
+      // Forzar el cambio a la vista de recibos
+      if (vistaActual !== "recibos")
+        document.getElementById("recibos-tab").click();
+      bar.classList.remove("d-none");
+      setTimeout(() => (bar.style.transform = "translateY(0)"), 10);
+    } else {
+      bar.style.transform = "translateY(100%)";
+      setTimeout(() => bar.classList.add("d-none"), 300);
+    }
+    actualizarContadorAdmin();
+    renderizarTarjetas();
+  }
+
+  function toggleSeleccion(index) {
+    if (!modoAdmin) return;
+    if (recibosSeleccionados.has(index)) recibosSeleccionados.delete(index);
+    else recibosSeleccionados.add(index);
+    actualizarContadorAdmin();
+    renderizarTarjetas();
+  }
+
+  function actualizarContadorAdmin() {
+    const countEl = document.getElementById("adminCount");
+    if (countEl) countEl.innerText = recibosSeleccionados.size;
+  }
+
+  function confirmarEliminacion() {
+    if (recibosSeleccionados.size === 0)
+      return alert("Selecciona al menos un recibo.");
+    if (
+      !confirm(
+        `¿Seguro de eliminar físicamente ${recibosSeleccionados.size} recibos (Documento y Fila)?\n\nEsta acción no se puede deshacer.`,
+      )
+    )
+      return;
+
+    const btn = document.getElementById("btnAdminDelete");
+    btn.disabled = true;
+    btn.innerHTML =
+      '<span class="spinner-border spinner-border-sm"></span> Borrando...';
+
+    const aEliminar = Array.from(recibosSeleccionados).map((idx) => ({
+      nombreHoja: recibosData[idx].nombreHoja,
+      rowIndex: recibosData[idx].rowIndex,
+      urlDoc: recibosData[idx].urlDoc,
+    }));
+
+    google.script.run
+      .withSuccessHandler((res) => {
+        btn.disabled = false;
+        btn.innerHTML =
+          '<i class="fa-solid fa-trash"></i> Eliminar Físicamente';
+        if (res.success) {
+          toggleModoAdmin();
+          cargarDatos();
+        } else alert("Error: " + res.message);
+      })
+      .withFailureHandler((err) => {
+        alert("Error crítico: " + err);
+        btn.disabled = false;
+        btn.innerHTML =
+          '<i class="fa-solid fa-trash"></i> Eliminar Físicamente';
+      })
+      .eliminarRecibosMasivo(aEliminar);
+  }
+
+  // LÓGICA DE SOLICITUDES (TABLA)
+  function renderizarTablaSolicitudes() {
+    const tbody = document.getElementById("solicitudesList");
+
+    if (solicitudesData.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-5 text-muted"><i class="fa-solid fa-inbox fs-2 mb-2 d-block opacity-50"></i>No hay solicitudes pendientes de confirmación.</td></tr>`;
+      document.getElementById("chkTodosSol").disabled = true;
+      return;
+    }
+
+    document.getElementById("chkTodosSol").disabled = false;
+    let html = "";
+
+    solicitudesData.forEach((s, i) => {
+      // Formato de Fecha
+      const fecha = new Date(s.marcaTemporal);
+      const fechaFormat = `${fecha.getDate().toString().padStart(2, "0")}/${(fecha.getMonth() + 1).toString().padStart(2, "0")} ${fecha.getHours().toString().padStart(2, "0")}:${fecha.getMinutes().toString().padStart(2, "0")}`;
+
+      const isSelected = solicitudesSeleccionadas.has(i);
+      const importeFormat = Number(s.importe).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+
+      // Estatus
+      const badgeCaja =
+        s.estadoConfirmacion === "PENDIENTE"
+          ? `<span class="badge bg-warning text-dark"><i class="fa-regular fa-clock"></i> Pendiente</span>`
+          : `<span class="badge bg-success"><i class="fa-solid fa-check"></i> Confirmado</span>`;
+
+      // Botón Enviar (Deshabilitado si Caja no ha confirmado)
+      const btnEnviar =
+        s.estadoConfirmacion !== "CONFIRMADO"
+          ? `<button class="btn btn-sm btn-outline-secondary disabled border-0" title="Requiere confirmación de Caja"><i class="fa-solid fa-paper-plane"></i></button>`
+          : `<button class="btn btn-sm btn-blue shadow-sm" onclick="abrirModalCorreoSolicitud(${i})" title="Enviar Correo al Cliente"><i class="fa-solid fa-paper-plane"></i></button>`;
+
+      html += `
+        <tr class="${isSelected ? "table-primary" : ""}">
+          <td class="text-center">
+            <input class="form-check-input border-secondary chk-solicitud" type="checkbox" ${isSelected ? "checked" : ""} onclick="toggleSolicitudIndividual(${i})">
+          </td>
+          <td class="small text-muted fw-bold">${fechaFormat}</td>
+          <td>
+            <div class="fw-bold" style="color: var(--color-primary); font-size: 0.95rem;">${s.cliente}</div>
+            <div class="small text-muted">${s.correoSolicitante}</div>
+          </td>
+          <td class="small text-secondary">${s.concepto}</td>
+          <td class="fw-bold text-success">$${importeFormat}</td>
+          <td class="text-center">${badgeCaja}</td>
+          <td class="text-center">${btnEnviar}</td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  }
+
+  function toggleSolicitudIndividual(index) {
+    if (solicitudesSeleccionadas.has(index))
+      solicitudesSeleccionadas.delete(index);
+    else solicitudesSeleccionadas.add(index);
+
+    actualizarContadorSolicitudes();
+    renderizarTablaSolicitudes();
+  }
+
+  function toggleTodasSolicitudes(checkboxMaster) {
+    solicitudesSeleccionadas.clear();
+    if (checkboxMaster.checked) {
+      solicitudesData.forEach((_, i) => solicitudesSeleccionadas.add(i));
+    }
+    actualizarContadorSolicitudes();
+    renderizarTablaSolicitudes();
+  }
+
+  function actualizarContadorSolicitudes() {
+    const btn = document.getElementById("btnConfirmarMultiples");
+    const count = document.getElementById("countSolicitudes");
+
+    count.innerText = solicitudesSeleccionadas.size;
+    btn.disabled = solicitudesSeleccionadas.size === 0;
+
+    // Sincronizar el checkbox master visualmente
+    const chkMaster = document.getElementById("chkTodosSol");
+    if (solicitudesData.length > 0) {
+      chkMaster.checked =
+        solicitudesSeleccionadas.size === solicitudesData.length;
+      chkMaster.indeterminate =
+        solicitudesSeleccionadas.size > 0 &&
+        solicitudesSeleccionadas.size < solicitudesData.length;
+    }
+  }
+
+  function confirmarSolicitudes() {
+    if (solicitudesSeleccionadas.size === 0) return;
+
+    const btn = document.getElementById("btnConfirmarMultiples");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Confirmando...';
+
+    // Extraer los rowIndex de las solicitudes que palomeaste
+    const filasAConfirmar = Array.from(solicitudesSeleccionadas).map(idx => solicitudesData[idx].rowIndex);
+
+    google.script.run
+      .withSuccessHandler((res) => {
+        if (res.success) {
+          cargarDatos(); // Al recargar, la variable vistaActual te mantendrá en la tabla
+        } else {
+          alert("Error al confirmar: " + res.message);
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-check-double me-1"></i> Confirmar en Caja';
+        }
+      })
+      .withFailureHandler((err) => {
+        alert("Error crítico: " + err);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-check-double me-1"></i> Confirmar en Caja';
+      })
+      .confirmarSolicitudesMasivo(filasAConfirmar);
+  }
+
+  function abrirModalCorreoSolicitud(index) {
+    currentTipoCorreo = "solicitud"; // Le decimos al modal que operará en modo "Solicitud"
+    currentRowIndex = solicitudesData[index].rowIndex;
+    
+    document.getElementById("correoAlert").classList.add("d-none");
+
+    document.querySelector("#modalCorreo .modal-title").innerHTML = `<i class="fa-solid fa-bell me-2" style="color: var(--color-btn-blue)"></i>Notificar a Cliente`;
+
+    const container = document.getElementById("emailCheckboxesContainer");
+    const correoSolicitante = solicitudesData[index].correoSolicitante;
+    
+    // Tarjeta principal: El correo que el cliente puso en el formulario
+    let html = `
+      <div class="col-12 col-md-6">
+        <label class="d-flex align-items-center gap-3 p-3 shadow-sm h-100 checkbox-card" style="cursor: pointer; border-radius: 8px; border: 1px solid #e2e8f0; background: var(--color-widget); transition: all 0.2s ease;">
+          <input class="form-check-input flex-shrink-0 m-0" type="checkbox" value="${correoSolicitante}" checked style="font-size: 1.4em; cursor: pointer;">
+          <span class="fw-bold text-secondary text-break w-100" style="font-size: 0.9em; line-height: 1.3;">
+            Correo Solicitante <br>
+            <small class="fw-normal text-muted">${correoSolicitante}</small>
+          </span>
+        </label>
+      </div>
+    `;
+
+    // Tarjetas secundarias
+    listadoCorreos.forEach((contacto, i) => {
+      html += `
+        <div class="col-12 col-md-6">
+          <label class="d-flex align-items-center gap-3 p-3 shadow-sm h-100 checkbox-card" style="cursor: pointer; border-radius: 8px; border: 1px solid #e2e8f0; background: var(--color-widget); transition: all 0.2s ease;">
+            <input class="form-check-input flex-shrink-0 m-0" type="checkbox" value="${contacto.correo}" style="font-size: 1.4em; cursor: pointer;">
+            <span class="fw-bold text-secondary text-break w-100" style="font-size: 0.9em; line-height: 1.3;">
+              ${contacto.nombre} <br>
+              <small class="fw-normal text-muted">${contacto.correo}</small>
+            </span>
+          </label>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+    new bootstrap.Modal(document.getElementById("modalCorreo")).show();
+  }
+</script>
 </script>

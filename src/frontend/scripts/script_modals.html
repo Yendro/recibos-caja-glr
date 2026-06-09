@@ -165,6 +165,10 @@
   }
 
   function abrirModalCorreo(index) {
+    currentTipoCorreo = "recibo"; // Restaura al modo recibo
+    document.querySelector("#modalCorreo .modal-title").innerHTML =
+      `<i class="fa-solid fa-paper-plane me-2" style="color: var(--color-btn-blue)"></i>Enviar Recibo PDF`;
+
     currentRowIndex = recibosData[index].rowIndex;
     currentNombreHoja = recibosData[index].nombreHoja;
     document.getElementById("correoAlert").classList.add("d-none");
@@ -174,8 +178,6 @@
     let html = "";
 
     listadoCorreos.forEach((contacto, i) => {
-      // Usamos col-12 para celulares (1 columna) y col-md-6 para tablets/PCs (2 columnas)
-      // Agregamos h-100 para que todas las tarjetas tengan la misma altura
       html += `
         <div class="col-12 col-md-6">
           <label class="d-flex align-items-center gap-3 p-3 shadow-sm h-100 checkbox-card" style="cursor: pointer; border-radius: 8px; border: 1px solid #e2e8f0; background: var(--color-widget); transition: all 0.2s ease;">
@@ -214,26 +216,55 @@
     document.getElementById("correoAlert").classList.add("d-none");
 
     // 4. Enviar al Backend
-    google.script.run
-      .withSuccessHandler((res) => {
-        if (res.success) {
-          bootstrap.Modal.getInstance(
-            document.getElementById("modalCorreo"),
-          ).hide();
-          cargarDatos(); // Recargar datos para limpiar la pantalla
-        } else {
-          mostrarAlertaCorreo("Error: " + res.message, "danger");
-        }
-        btnSend.disabled = false;
-        btnSend.innerHTML =
-          '<i class="fa-solid fa-paper-plane"></i> Enviar Ahora';
-      })
-      .withFailureHandler((err) => {
-        mostrarAlertaCorreo("Error crítico del servidor: " + err, "danger");
-        btnSend.disabled = false;
-        btnSend.innerHTML =
-          '<i class="fa-solid fa-paper-plane"></i> Enviar Ahora';
-      })
-      .enviarReciboPorCorreo(currentRowIndex, currentNombreHoja, seleccionados);
+    if (currentTipoCorreo === "recibo") {
+      google.script.run
+        .withSuccessHandler((res) => {
+          if (res.success) {
+            bootstrap.Modal.getInstance(
+              document.getElementById("modalCorreo"),
+            ).hide();
+            cargarDatos();
+          } else {
+            mostrarAlertaCorreo("Error: " + res.message, "danger");
+          }
+          btnSend.disabled = false;
+          btnSend.innerHTML =
+            '<i class="fa-solid fa-paper-plane"></i> Enviar Ahora';
+        })
+        .withFailureHandler((err) => {
+          mostrarAlertaCorreo("Error crítico del servidor: " + err, "danger");
+          btnSend.disabled = false;
+          btnSend.innerHTML =
+            '<i class="fa-solid fa-paper-plane"></i> Enviar Ahora';
+        })
+        .enviarReciboPorCorreo(
+          currentRowIndex,
+          currentNombreHoja,
+          seleccionados,
+        );
+    } else {
+      // MODO SOLICITUDES
+      google.script.run
+        .withSuccessHandler((res) => {
+          if (res.success) {
+            bootstrap.Modal.getInstance(
+              document.getElementById("modalCorreo"),
+            ).hide();
+            cargarDatos();
+          } else {
+            mostrarAlertaCorreo("Error: " + res.message, "danger");
+          }
+          btnSend.disabled = false;
+          btnSend.innerHTML =
+            '<i class="fa-solid fa-paper-plane"></i> Enviar Ahora';
+        })
+        .withFailureHandler((err) => {
+          mostrarAlertaCorreo("Error crítico del servidor: " + err, "danger");
+          btnSend.disabled = false;
+          btnSend.innerHTML =
+            '<i class="fa-solid fa-paper-plane"></i> Enviar Ahora';
+        })
+        .enviarCorreoSolicitud(currentRowIndex, seleccionados);
+    }
   }
 </script>

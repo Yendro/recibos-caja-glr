@@ -79,3 +79,65 @@ function enviarReciboPorCorreo(rowIndex, nombreHoja, destinatariosArr) {
     return { success: false, message: error.toString() };
   }
 }
+
+function enviarCorreoSolicitud(rowIndex, destinatariosArr) {
+  try {
+    const spreadSheet = SpreadsheetApp.getActiveSpreadsheet();
+    const hoja = spreadSheet.getSheetByName(NOMBRE_HOJA_SOLICITUDES);
+    if (!hoja) throw new Error("Hoja de solicitudes no encontrada.");
+
+    const cliente = hoja
+      .getRange(rowIndex, COLUMNAS_SOLICITUDES.CLIENTE + 1)
+      .getValue();
+    const concepto = hoja
+      .getRange(rowIndex, COLUMNAS_SOLICITUDES.CONCEPTO + 1)
+      .getValue();
+    const importe = hoja
+      .getRange(rowIndex, COLUMNAS_SOLICITUDES.IMPORTE + 1)
+      .getValue();
+    const importeFormateado = Number(importe).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    // Preparar plantilla específica
+    const htmlTemplate = HtmlService.createTemplateFromFile(
+      "src/frontend/templates/correo_solicitud",
+    );
+    htmlTemplate.cliente = cliente;
+    htmlTemplate.concepto = concepto;
+    htmlTemplate.importe = importeFormateado;
+    const bodyCorreo = htmlTemplate.evaluate().getContent();
+
+    const correosDestino = destinatariosArr.join(",");
+    const config = obtenerConfiguracion();
+
+    const opcionesEmail = {
+      htmlBody: bodyCorreo,
+      name: config.nombreRemitente || "Caja",
+    };
+
+    if (config.aliasCorreo && config.aliasCorreo.includes("@")) {
+      opcionesEmail.from = config.aliasCorreo;
+    }
+
+    GmailApp.sendEmail(
+      correosDestino,
+      `Fondos Confirmados en Caja - ${cliente}`,
+      "Sus fondos han sido confirmados en Caja. Por favor, visualice este correo en un cliente que soporte formato HTML.",
+      opcionesEmail,
+    );
+
+    hoja
+      .getRange(rowIndex, COLUMNAS_SOLICITUDES.ESTADO_CORREO + 1)
+      .setValue("ENVIADO");
+    hoja
+      .getRange(rowIndex, COLUMNAS_SOLICITUDES.DESTINATARIOS + 1)
+      .setValue(correosDestino);
+
+    return { success: true, message: "Enviado con éxito" };
+  } catch (error) {
+    console.error("Error en enviarCorreoSolicitud:", error);
+    return { success: false, message: error.toString() };
+  }
+}
